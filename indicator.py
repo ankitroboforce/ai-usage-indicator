@@ -14,7 +14,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("AyatanaAppIndicator3", "0.1")
 from gi.repository import AyatanaAppIndicator3, GLib, Gtk
 
-REFRESH_SECONDS = 120
+REFRESH_SECONDS = 60
 CLAUDE_BIN = "claude"
 STATE_DIR = Path.home() / ".local" / "share" / "claude-usage-indicator"
 LOG_FILE = STATE_DIR / "indicator.log"

@@ -1,7 +1,7 @@
 # claude-usage-indicator
 
 A GNOME top-panel indicator that shows Claude Code usage (session % and
-weekly % from `claude -p "/usage"`), refreshing every 2 minutes.
+weekly % from `claude -p "/usage"`), refreshing every 60 seconds.
 
 Built for Ubuntu 22.04 / GNOME Shell 42, using `AyatanaAppIndicator3`
 (the cross-desktop StatusNotifierItem protocol) rather than a GNOME Shell
@@ -32,7 +32,7 @@ python3 indicator.py
 ## Configuration
 
 Edit the `REFRESH_SECONDS` constant at the top of `indicator.py` (default
-`120`) to change the polling interval, then restart the service:
+`60`) to change the polling interval, then restart the service:
 
 ```bash
 systemctl --user restart claude-usage-indicator.service
