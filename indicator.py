@@ -113,7 +113,7 @@ class UsageIndicator:
         GLib.idle_add(self.set_usage, usage)
 
     def set_usage(self, usage):
-        label = f"S {usage['session_pct']}% · W {usage['week_pct']}%"
+        label = f"Session {usage['session_pct']}% · Week {usage['week_pct']}%"
         self.indicator.set_label(label, "Claude: 100%")
 
         detail_lines = [f"Session: {usage['session_pct']}% used"]
@@ -126,7 +126,7 @@ class UsageIndicator:
         return False
 
     def set_error(self):
-        self.indicator.set_label("S ?% · W ?%", "Claude: 100%")
+        self.indicator.set_label("Session ?% · Week ?%", "Claude: 100%")
         self.detail_item.set_label("Failed to fetch /usage — see indicator.log")
         return False
 
