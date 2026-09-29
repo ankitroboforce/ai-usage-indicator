@@ -17,8 +17,14 @@ item for reset times, Codex credit counts, and "Refresh now".
 - **Codex** uses the white OpenAI "Blossom" logo. It's OpenAI's trademark,
   so it isn't in this repo: `install.sh` asks whether to download it from
   OpenAI's brand page (<https://openai.com/brand/>), and doing so means
-  agreeing to OpenAI's Marks usage terms. It's saved to
-  `~/.local/share/claude-usage-indicator/icons/openai-blossom.svg`.
+  agreeing to OpenAI's Marks usage terms. The logo's canvas has a wide
+  clear-space border that makes the mark only ~8px tall in the panel, so
+  the installer trims the SVG's `viewBox` to the mark (the shape itself is
+  unchanged) and saves it to
+  `~/.local/share/claude-usage-indicator/icons/openai-blossom-trimmed.svg`.
+  GNOME caches panel icons by file path for the whole login session, so if
+  you ever change the icon file, give it a new name (and update
+  `CODEX_ICON` in `indicator.py`) or log out and back in.
 
 If either icon is missing, that item shows a generic terminal icon with the
 word `Claude` or `Codex` in front of its numbers instead.

@@ -33,7 +33,9 @@ CODEX_APP_ID = "codex-usage-indicator"
 # download it into ICON_DIR. Either missing -> fall back to a text prefix.
 CLAUDE_ICON = "claude-desktop"
 ICON_DIR = STATE_DIR / "icons"
-CODEX_ICON = "openai-blossom"
+# GNOME Shell caches panel icons by file path for the whole login session,
+# so a changed icon needs a new name to show up without logging out.
+CODEX_ICON = "openai-blossom-trimmed"
 FALLBACK_ICON = "utilities-terminal-symbolic"
 
 STATE_DIR.mkdir(parents=True, exist_ok=True)

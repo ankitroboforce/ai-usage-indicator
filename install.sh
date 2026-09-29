@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="$HOME/.local/share/claude-usage-indicator"
 SERVICE_DIR="$HOME/.config/systemd/user"
 ICON_DIR="$STATE_DIR/icons"
-OPENAI_ICON="$ICON_DIR/openai-blossom.svg"
+OPENAI_ICON="$ICON_DIR/openai-blossom-trimmed.svg"
 OPENAI_LOGO_URL="https://cdn.openai.com/brand/openai-logos.zip"
 OPENAI_LOGO_MEMBER="OpenAI-logos/SVGs/OAI_OpenAI-Blossom_White.svg"
 
@@ -13,6 +13,9 @@ OPENAI_LOGO_MEMBER="OpenAI-logos/SVGs/OAI_OpenAI-Blossom_White.svg"
 # Ask before fetching it from OpenAI's brand page. Set INSTALL_OPENAI_LOGO=yes
 # or =no to skip the prompt.
 install_openai_logo() {
+    # Untrimmed logo from earlier installs.
+    rm -f "$ICON_DIR/openai-blossom.svg"
+
     if [ -f "$OPENAI_ICON" ]; then
         echo "OpenAI logo already installed."
         return
@@ -45,10 +48,29 @@ install_openai_logo() {
     if curl -fsSL -o "$tmp/openai-logos.zip" "$OPENAI_LOGO_URL" &&
         mkdir -p "$ICON_DIR" &&
         python3 - "$tmp/openai-logos.zip" "$OPENAI_LOGO_MEMBER" "$OPENAI_ICON" <<'EOF'
-import sys, zipfile
+import re, sys, zipfile
 src, member, dest = sys.argv[1:]
-with zipfile.ZipFile(src) as z, open(dest, "wb") as f:
-    f.write(z.read(member))
+with zipfile.ZipFile(src) as z:
+    svg = z.read(member).decode()
+
+# The logo's canvas includes a lot of clear space, which makes the mark tiny
+# at panel size. Shrink the viewBox to the mark's bounds. Only done when all
+# path commands are absolute, so the numbers really are coordinates; control
+# points bound the curves, so this never clips the mark.
+paths = " ".join(re.findall(r'\sd="([^"]+)"', svg))
+if paths and not re.search(r"[a-z]", paths):
+    nums = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", paths)]
+    margin = 8
+    x0, x1 = min(nums[0::2]) - margin, max(nums[0::2]) + margin
+    y0, y1 = min(nums[1::2]) - margin, max(nums[1::2]) + margin
+    size = max(x1 - x0, y1 - y0)
+    svg = re.sub(r'<svg\b[^>]*?>', lambda m: re.sub(
+        r'\s(width|height|viewBox)="[^"]*"', "", m.group(0)
+    ).replace("<svg", f'<svg width="{size:g}" height="{size:g}" '
+              f'viewBox="{x0:g} {y0:g} {size:g} {size:g}"', 1), svg, count=1)
+
+with open(dest, "w") as f:
+    f.write(svg)
 EOF
     then
         echo "Installed the OpenAI logo to $OPENAI_ICON"
