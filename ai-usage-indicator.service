@@ -1,0 +1,11 @@
+[Unit]
+Description=AI usage indicator (Claude Code and Codex)
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/share/ai-usage-indicator/indicator.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

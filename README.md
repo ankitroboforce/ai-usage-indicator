@@ -1,4 +1,4 @@
-# claude-usage-indicator
+# ai-usage-indicator
 
 GNOME top-panel indicators that show Claude Code and Codex usage side by
 side, refreshing every 30 seconds:
@@ -21,7 +21,7 @@ item for reset times, Codex credit counts, and "Refresh now".
   clear-space border that makes the mark only ~8px tall in the panel, so
   the installer trims the SVG's `viewBox` to the mark (the shape itself is
   unchanged) and saves it to
-  `~/.local/share/claude-usage-indicator/icons/openai-blossom-trimmed.svg`.
+  `~/.local/share/ai-usage-indicator/icons/openai-blossom-trimmed.svg`.
   GNOME caches panel icons by file path for the whole login session, so if
   you ever change the icon file, give it a new name (and update
   `CODEX_ICON` in `indicator.py`) or log out and back in.
@@ -75,11 +75,11 @@ This will:
 2. `apt install gir1.2-ayatanaappindicator3-0.1` (the only missing system
    dependency; `python3-gi`, `gir1.2-gtk-3.0` are installed by default on
    Ubuntu GNOME).
-3. Copy `indicator.py` to `~/.local/share/claude-usage-indicator/`.
+3. Copy `indicator.py` to `~/.local/share/ai-usage-indicator/`.
 4. Ask whether to download the OpenAI logo for the Codex item (see
    [Icons](#icons)). Set `INSTALL_OPENAI_LOGO=yes` or `=no` to skip the
    prompt; it's skipped automatically if the logo is already installed.
-5. Install and enable `claude-usage-indicator.service` as a
+5. Install and enable `ai-usage-indicator.service` as a
    `systemctl --user` service tied to `graphical-session.target`, so it
    starts on login and stops on logout. Both panel items run from this one
    service. Re-running `install.sh` restarts it to pick up changes.
@@ -97,15 +97,15 @@ Edit the `REFRESH_SECONDS` constant at the top of `indicator.py` (default
 point at a specific binary, then restart the service:
 
 ```bash
-systemctl --user restart claude-usage-indicator.service
+systemctl --user restart ai-usage-indicator.service
 ```
 
 ## Logs
 
-Errors are written to `~/.local/share/claude-usage-indicator/indicator.log`.
+Errors are written to `~/.local/share/ai-usage-indicator/indicator.log`.
 
 ```bash
-journalctl --user -u claude-usage-indicator.service -f
+journalctl --user -u ai-usage-indicator.service -f
 ```
 
 ## Debugging
@@ -114,17 +114,17 @@ If the panel label isn't showing or isn't updating:
 
 1. Check the service is actually running:
    ```bash
-   systemctl --user status claude-usage-indicator.service
+   systemctl --user status ai-usage-indicator.service
    ```
 2. Check both logs for errors:
    ```bash
-   journalctl --user -u claude-usage-indicator.service -n 50 --no-pager
-   cat ~/.local/share/claude-usage-indicator/indicator.log
+   journalctl --user -u ai-usage-indicator.service -n 50 --no-pager
+   cat ~/.local/share/ai-usage-indicator/indicator.log
    ```
 3. Stop the service and run it in the foreground to see errors live:
    ```bash
-   systemctl --user stop claude-usage-indicator.service
-   python3 ~/.local/share/claude-usage-indicator/indicator.py
+   systemctl --user stop ai-usage-indicator.service
+   python3 ~/.local/share/ai-usage-indicator/indicator.py
    ```
 
 Common issues:
@@ -157,7 +157,7 @@ Common issues:
   that changed the app-server protocol, or being logged out
   (`codex login`). To test the live read directly:
   ```bash
-  python3 -c "import sys; sys.path.insert(0, '$HOME/.local/share/claude-usage-indicator'); import indicator; print(indicator.fetch_codex_rate_limits())"
+  python3 -c "import sys; sys.path.insert(0, '$HOME/.local/share/ai-usage-indicator'); import indicator; print(indicator.fetch_codex_rate_limits())"
   ```
 - **Codex item shows `?%`** — both the live read and the log fallback
   failed (e.g. `codex` isn't installed or has never been used). Check
@@ -180,18 +180,18 @@ Common issues:
 Stop it for now (it restarts automatically on next login, since it's
 still enabled):
 ```bash
-systemctl --user stop claude-usage-indicator.service
+systemctl --user stop ai-usage-indicator.service
 ```
 
 Stop it and prevent it from auto-starting again:
 ```bash
-systemctl --user disable --now claude-usage-indicator.service
+systemctl --user disable --now ai-usage-indicator.service
 ```
 
 Remove it entirely:
 ```bash
-systemctl --user disable --now claude-usage-indicator.service
-rm ~/.config/systemd/user/claude-usage-indicator.service
-rm -rf ~/.local/share/claude-usage-indicator
+systemctl --user disable --now ai-usage-indicator.service
+rm ~/.config/systemd/user/ai-usage-indicator.service
+rm -rf ~/.local/share/ai-usage-indicator
 systemctl --user daemon-reload
 ```

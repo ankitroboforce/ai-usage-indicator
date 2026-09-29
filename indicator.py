@@ -24,8 +24,10 @@ REFRESH_SECONDS = 30
 CLAUDE_BIN = "claude"
 CODEX_BIN = "codex"
 CODEX_SESSIONS_DIR = Path.home() / ".codex" / "sessions"
-STATE_DIR = Path.home() / ".local" / "share" / "claude-usage-indicator"
+STATE_DIR = Path.home() / ".local" / "share" / "ai-usage-indicator"
 LOG_FILE = STATE_DIR / "indicator.log"
+# Per-item panel IDs. The Claude one predates the ai-usage-indicator rename
+# and is kept so its panel position doesn't change.
 APP_ID = "claude-usage-indicator"
 CODEX_APP_ID = "codex-usage-indicator"
 

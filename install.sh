@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE_DIR="$HOME/.local/share/claude-usage-indicator"
+STATE_DIR="$HOME/.local/share/ai-usage-indicator"
 SERVICE_DIR="$HOME/.config/systemd/user"
 ICON_DIR="$STATE_DIR/icons"
 OPENAI_ICON="$ICON_DIR/openai-blossom-trimmed.svg"
@@ -122,15 +122,15 @@ sudo apt-get install -y gir1.2-ayatanaappindicator3-0.1
 
 mkdir -p "$STATE_DIR" "$SERVICE_DIR"
 cp "$SCRIPT_DIR/indicator.py" "$STATE_DIR/indicator.py"
-cp "$SCRIPT_DIR/claude-usage-indicator.service" "$SERVICE_DIR/claude-usage-indicator.service"
+cp "$SCRIPT_DIR/ai-usage-indicator.service" "$SERVICE_DIR/ai-usage-indicator.service"
 
 install_openai_logo
 
 systemctl --user daemon-reload
-systemctl --user enable claude-usage-indicator.service
+systemctl --user enable ai-usage-indicator.service
 # restart (not just start) so re-running the installer picks up changes.
-systemctl --user restart claude-usage-indicator.service
+systemctl --user restart ai-usage-indicator.service
 
 echo "Installed. Check status with:"
-echo "  systemctl --user status claude-usage-indicator.service"
-echo "  journalctl --user -u claude-usage-indicator.service -f"
+echo "  systemctl --user status ai-usage-indicator.service"
+echo "  journalctl --user -u ai-usage-indicator.service -f"
