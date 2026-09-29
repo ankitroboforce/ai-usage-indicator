@@ -81,6 +81,42 @@ EOF
     rm -rf "$tmp"
 }
 
+# The indicator is only useful with at least one of the CLIs installed. Look
+# them up on the PATH the systemd user service will actually run with, which
+# can differ from this shell's (e.g. PATH set only in ~/.bashrc).
+check_tools() {
+    local service_path found=0 tool in_service in_shell
+    service_path="$(systemctl --user show-environment 2>/dev/null | sed -n 's/^PATH=//p')"
+    [ -n "$service_path" ] || service_path="$PATH"
+
+    echo "Checking for Claude Code and Codex..."
+    for tool in claude codex; do
+        in_service="$(PATH="$service_path"; command -v "$tool" || true)"
+        in_shell="$(command -v "$tool" || true)"
+        if [ -n "$in_service" ] && ! "$in_service" --version >/dev/null 2>&1; then
+            echo "  broken    $tool: $in_service is on PATH but '$tool --version' fails."
+            echo "            Reinstall it, or set ${tool^^}_BIN in indicator.py to a working copy."
+        elif [ -n "$in_service" ]; then
+            echo "  found     $tool ($in_service)"
+            found=$((found + 1))
+        elif [ -n "$in_shell" ]; then
+            echo "  not found $tool: it's at $in_shell, but that isn't on the PATH the"
+            echo "            service runs with. Set ${tool^^}_BIN in indicator.py to that path."
+        else
+            echo "  not found $tool: its indicator will stay hidden until it's installed."
+        fi
+    done
+
+    if [ "$found" -eq 0 ]; then
+        echo
+        echo "No working Claude Code (claude) or Codex (codex) was found, so there's"
+        echo "nothing to show. Fix at least one of the above and re-run ./install.sh."
+        exit 1
+    fi
+}
+
+check_tools
+
 echo "Installing gir1.2-ayatanaappindicator3-0.1 (requires sudo)..."
 sudo apt-get install -y gir1.2-ayatanaappindicator3-0.1
 

@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import select
+import shutil
 import subprocess
 import threading
 import time
@@ -245,8 +246,8 @@ class ToolIndicator:
         if theme_path:
             self.indicator.set_icon_theme_path(theme_path)
             self.indicator.set_icon_full(icon_name, app_id)
-        self.indicator.set_status(AyatanaAppIndicator3.IndicatorStatus.ACTIVE)
         self.indicator.set_label(f"{self.prefix}…", "")
+        self.set_visible(False)
 
         self.detail_item = Gtk.MenuItem(label="Loading…")
         self.detail_item.set_sensitive(False)
@@ -266,17 +267,44 @@ class ToolIndicator:
         menu.show_all()
         self.indicator.set_menu(menu)
 
+    def set_visible(self, visible):
+        # PASSIVE hides the item without unregistering it, so it keeps its
+        # place in the panel if it comes back.
+        self.indicator.set_status(
+            AyatanaAppIndicator3.IndicatorStatus.ACTIVE if visible
+            else AyatanaAppIndicator3.IndicatorStatus.PASSIVE
+        )
+
     def show(self, label, detail):
         self.indicator.set_label(f"{self.prefix}{label}", "")
         self.detail_item.set_label(detail)
 
 
+def installed_tools():
+    """Which CLIs are on PATH right now. Checked every poll, so installing or
+    removing one takes effect on the next refresh without a restart."""
+    return {"claude": shutil.which(CLAUDE_BIN) is not None,
+            "codex": shutil.which(CODEX_BIN) is not None}
+
+
 class UsageIndicator:
     def __init__(self):
-        # The AppIndicator extension inserts each new item to the left of the
-        # ones before it, so Codex is created first to end up on the right.
+        # Both items are always registered and just hidden when their CLI is
+        # missing. The AppIndicator extension inserts each new item to the
+        # left of the ones before it, so Codex is created first to end up on
+        # the right, and a tool installed later still lands in its usual spot.
         self.codex = ToolIndicator(CODEX_APP_ID, codex_icon(), self.poll_async, Gtk.main_quit)
         self.claude = ToolIndicator(APP_ID, claude_icon(), self.poll_async, Gtk.main_quit)
+        self.installed = {}
+        self.update_visibility(installed_tools())
+
+    def update_visibility(self, installed):
+        for name, item in (("claude", self.claude), ("codex", self.codex)):
+            if installed[name] != self.installed.get(name):
+                logging.info("%s %s", name, "found; showing its indicator"
+                             if installed[name] else "not found on PATH; hiding its indicator")
+                item.set_visible(installed[name])
+        self.installed = installed
 
     def start(self):
         self.poll_async()
@@ -291,20 +319,26 @@ class UsageIndicator:
 
     def _poll_worker(self):
         # Each tool is fetched independently so one failing never hides the other.
+        installed = installed_tools()
         claude = codex = None
-        try:
-            claude = parse_usage(fetch_usage_text())
-        except Exception:
-            logging.exception("claude usage poll failed")
-        try:
-            codex = fetch_codex_usage()
-        except Exception:
-            logging.exception("codex usage poll failed")
-        GLib.idle_add(self.set_usage, claude, codex)
+        if installed["claude"]:
+            try:
+                claude = parse_usage(fetch_usage_text())
+            except Exception:
+                logging.exception("claude usage poll failed")
+        if installed["codex"]:
+            try:
+                codex = fetch_codex_usage()
+            except Exception:
+                logging.exception("codex usage poll failed")
+        GLib.idle_add(self.set_usage, installed, claude, codex)
 
-    def set_usage(self, claude, codex):
-        self.claude.show(self.claude_label(claude), self.claude_detail(claude))
-        self.codex.show(self.codex_label(codex), self.codex_detail(codex))
+    def set_usage(self, installed, claude, codex):
+        self.update_visibility(installed)
+        if installed["claude"]:
+            self.claude.show(self.claude_label(claude), self.claude_detail(claude))
+        if installed["codex"]:
+            self.codex.show(self.codex_label(codex), self.codex_detail(codex))
         return False
 
     @staticmethod

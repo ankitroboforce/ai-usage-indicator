@@ -29,6 +29,14 @@ item for reset times, Codex credit counts, and "Refresh now".
 If either icon is missing, that item shows a generic terminal icon with the
 word `Claude` or `Codex` in front of its numbers instead.
 
+## Only one of the tools installed
+
+Each item only appears if its CLI (`claude` / `codex`) is on the service's
+`PATH`. This is re-checked every refresh, so installing one later makes its
+item appear within 30 seconds (in its usual spot), and uninstalling one
+hides it, without restarting anything. The systemd service itself doesn't
+check for either: it just keeps running, so it's ready when you install one.
+
 ## Where the numbers come from
 
 - **Claude**: `claude -p "/usage" --output-format json` (a local command;
@@ -59,14 +67,19 @@ keep working across GNOME version upgrades.
 ```
 
 This will:
-1. `apt install gir1.2-ayatanaappindicator3-0.1` (the only missing system
+1. Check that `claude` and/or `codex` are installed and actually run
+   (`--version`). It looks them up on the `PATH` the systemd service will
+   use, which can differ from your shell's, and flags a tool that's only
+   on your shell's `PATH`. It stops if neither works; with just one, it
+   continues and that tool's item stays hidden.
+2. `apt install gir1.2-ayatanaappindicator3-0.1` (the only missing system
    dependency; `python3-gi`, `gir1.2-gtk-3.0` are installed by default on
    Ubuntu GNOME).
-2. Copy `indicator.py` to `~/.local/share/claude-usage-indicator/`.
-3. Ask whether to download the OpenAI logo for the Codex item (see
+3. Copy `indicator.py` to `~/.local/share/claude-usage-indicator/`.
+4. Ask whether to download the OpenAI logo for the Codex item (see
    [Icons](#icons)). Set `INSTALL_OPENAI_LOGO=yes` or `=no` to skip the
    prompt; it's skipped automatically if the logo is already installed.
-4. Install and enable `claude-usage-indicator.service` as a
+5. Install and enable `claude-usage-indicator.service` as a
    `systemctl --user` service tied to `graphical-session.target`, so it
    starts on login and stops on logout. Both panel items run from this one
    service. Re-running `install.sh` restarts it to pick up changes.
@@ -122,6 +135,11 @@ Common issues:
   ```bash
   claude -p "/usage" --output-format json
   ```
+- **One of the items doesn't appear at all** — its CLI wasn't found on
+  the service's `PATH`; `indicator.log` says `claude not found on PATH` or
+  `codex not found on PATH`. Re-run `./install.sh` to see where it's looking,
+  or set `CLAUDE_BIN` / `CODEX_BIN` at the top of `indicator.py` to the
+  absolute path.
 - **An item shows a terminal icon and the word `Claude`/`Codex`** — its
   icon wasn't found. For Claude, the Claude desktop app isn't installed.
   For Codex, the OpenAI logo wasn't downloaded; re-run
