@@ -1,14 +1,27 @@
 # claude-usage-indicator
 
-A GNOME top-panel indicator that shows Claude Code and Codex usage in one
-label, refreshing every 30 seconds:
+GNOME top-panel indicators that show Claude Code and Codex usage side by
+side, refreshing every 30 seconds:
 
 ```
-Claude Session 9% · Week 4%  |  Codex Week 0% · Month 0%
+[Claude icon] Session 9% · Week 4%    [OpenAI icon] Week 0% · Month 0%
 ```
 
-All numbers are **% used**, so both tools read the same way. Click the
-label for reset times, Codex credit counts, and "Refresh now".
+All numbers are **% used**, so both tools read the same way. Click either
+item for reset times, Codex credit counts, and "Refresh now".
+
+## Icons
+
+- **Claude** uses the `claude-desktop` icon installed by the Claude desktop
+  app.
+- **Codex** uses the white OpenAI "Blossom" logo. It's OpenAI's trademark,
+  so it isn't in this repo: `install.sh` asks whether to download it from
+  OpenAI's brand page (<https://openai.com/brand/>), and doing so means
+  agreeing to OpenAI's Marks usage terms. It's saved to
+  `~/.local/share/claude-usage-indicator/icons/openai-blossom.svg`.
+
+If either icon is missing, that item shows a generic terminal icon with the
+word `Claude` or `Codex` in front of its numbers instead.
 
 ## Where the numbers come from
 
@@ -24,7 +37,7 @@ label for reset times, Codex credit counts, and "Refresh now".
     the indicator shows `100 − remaining` so it matches everything else.
   - `app-server` is marked experimental by Codex. If the call fails, the
     indicator falls back to the last rate-limit snapshot in
-    `~/.codex/sessions/` and shows **`Codex*`**. That snapshot is only as
+    `~/.codex/sessions/` and adds a **`*`** (e.g. `Week 0%*`). That snapshot is only as
     fresh as your last Codex turn and has no `Month` figure; a window whose
     reset time has passed is shown as 0%.
 
@@ -44,9 +57,13 @@ This will:
    dependency; `python3-gi`, `gir1.2-gtk-3.0` are installed by default on
    Ubuntu GNOME).
 2. Copy `indicator.py` to `~/.local/share/claude-usage-indicator/`.
-3. Install and enable `claude-usage-indicator.service` as a
+3. Ask whether to download the OpenAI logo for the Codex item (see
+   [Icons](#icons)). Set `INSTALL_OPENAI_LOGO=yes` or `=no` to skip the
+   prompt; it's skipped automatically if the logo is already installed.
+4. Install and enable `claude-usage-indicator.service` as a
    `systemctl --user` service tied to `graphical-session.target`, so it
-   starts on login and stops on logout.
+   starts on login and stops on logout. Both panel items run from this one
+   service. Re-running `install.sh` restarts it to pick up changes.
 
 ## Manual run (for debugging)
 
@@ -93,12 +110,16 @@ If the panel label isn't showing or isn't updating:
 
 Common issues:
 
-- **Label shows `Claude Session ?% · Week ?%`** — the `claude -p "/usage"` call
+- **Claude item shows `Session ?% · Week ?%`** — the `claude -p "/usage"` call
   failed, or its output format changed. Check `indicator.log` for the
   exception, and confirm the command still works directly:
   ```bash
   claude -p "/usage" --output-format json
   ```
+- **An item shows a terminal icon and the word `Claude`/`Codex`** — its
+  icon wasn't found. For Claude, the Claude desktop app isn't installed.
+  For Codex, the OpenAI logo wasn't downloaded; re-run
+  `INSTALL_OPENAI_LOGO=yes ./install.sh`.
 - **No icon/label appears in the panel at all** — confirm the
   "Ubuntu AppIndicators" GNOME Shell extension is enabled:
   ```bash
@@ -106,7 +127,7 @@ Common issues:
   ```
   It should list `ubuntu-appindicators@ubuntu.com`. If you just installed
   it, log out and back in.
-- **Label shows `Codex*`** — the live `codex app-server` read failed and
+- **Codex item ends in `*`** (e.g. `Week 0%*`) — the live `codex app-server` read failed and
   the numbers are from the session logs. The menu shows how old they are,
   and `indicator.log` has the exception. Common causes are a Codex update
   that changed the app-server protocol, or being logged out
@@ -114,7 +135,7 @@ Common issues:
   ```bash
   python3 -c "import sys; sys.path.insert(0, '$HOME/.local/share/claude-usage-indicator'); import indicator; print(indicator.fetch_codex_rate_limits())"
   ```
-- **Label shows `Codex ?%`** — both the live read and the log fallback
+- **Codex item shows `?%`** — both the live read and the log fallback
   failed (e.g. `codex` isn't installed or has never been used). Check
   `which codex`, or set `CODEX_BIN` at the top of `indicator.py` to the
   absolute path.

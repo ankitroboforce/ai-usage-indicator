@@ -26,6 +26,15 @@ CODEX_SESSIONS_DIR = Path.home() / ".codex" / "sessions"
 STATE_DIR = Path.home() / ".local" / "share" / "claude-usage-indicator"
 LOG_FILE = STATE_DIR / "indicator.log"
 APP_ID = "claude-usage-indicator"
+CODEX_APP_ID = "codex-usage-indicator"
+
+# Claude's icon comes from the Claude desktop app's icon theme entry. The
+# OpenAI logo isn't redistributed in this repo; install.sh offers to
+# download it into ICON_DIR. Either missing -> fall back to a text prefix.
+CLAUDE_ICON = "claude-desktop"
+ICON_DIR = STATE_DIR / "icons"
+CODEX_ICON = "openai-blossom"
+FALLBACK_ICON = "utilities-terminal-symbolic"
 
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
@@ -207,36 +216,65 @@ def format_reset(epoch):
 
 # --- Indicator ---------------------------------------------------------------
 
-class UsageIndicator:
-    def __init__(self):
+def claude_icon():
+    """(icon name, theme path, text prefix) for the Claude indicator."""
+    if Gtk.IconTheme.get_default().has_icon(CLAUDE_ICON):
+        return CLAUDE_ICON, None, ""
+    return FALLBACK_ICON, None, "Claude "
+
+
+def codex_icon():
+    """(icon name, theme path, text prefix) for the Codex indicator."""
+    if (ICON_DIR / f"{CODEX_ICON}.svg").is_file():
+        return CODEX_ICON, str(ICON_DIR), ""
+    return FALLBACK_ICON, None, "Codex "
+
+
+class ToolIndicator:
+    """One panel item: an icon plus a text label, with its own menu."""
+
+    def __init__(self, app_id, icon, on_refresh, on_quit):
+        icon_name, theme_path, self.prefix = icon
         self.indicator = AyatanaAppIndicator3.Indicator.new(
-            APP_ID,
-            "utilities-terminal-symbolic",
+            app_id,
+            icon_name,
             AyatanaAppIndicator3.IndicatorCategory.APPLICATION_STATUS,
         )
+        if theme_path:
+            self.indicator.set_icon_theme_path(theme_path)
+            self.indicator.set_icon_full(icon_name, app_id)
         self.indicator.set_status(AyatanaAppIndicator3.IndicatorStatus.ACTIVE)
-        self.indicator.set_label("Claude … | Codex …", "")
+        self.indicator.set_label(f"{self.prefix}…", "")
 
-        self.claude_item = Gtk.MenuItem(label="Claude: loading…")
-        self.claude_item.set_sensitive(False)
-        self.codex_item = Gtk.MenuItem(label="Codex: loading…")
-        self.codex_item.set_sensitive(False)
+        self.detail_item = Gtk.MenuItem(label="Loading…")
+        self.detail_item.set_sensitive(False)
 
-        self.menu = Gtk.Menu()
-        self.menu.append(self.claude_item)
-        self.menu.append(self.codex_item)
-        self.menu.append(Gtk.SeparatorMenuItem())
+        menu = Gtk.Menu()
+        menu.append(self.detail_item)
+        menu.append(Gtk.SeparatorMenuItem())
 
         refresh_item = Gtk.MenuItem(label="Refresh now")
-        refresh_item.connect("activate", self.on_refresh_clicked)
-        self.menu.append(refresh_item)
+        refresh_item.connect("activate", lambda _w: on_refresh())
+        menu.append(refresh_item)
 
         quit_item = Gtk.MenuItem(label="Quit")
-        quit_item.connect("activate", self.on_quit)
-        self.menu.append(quit_item)
+        quit_item.connect("activate", lambda _w: on_quit())
+        menu.append(quit_item)
 
-        self.menu.show_all()
-        self.indicator.set_menu(self.menu)
+        menu.show_all()
+        self.indicator.set_menu(menu)
+
+    def show(self, label, detail):
+        self.indicator.set_label(f"{self.prefix}{label}", "")
+        self.detail_item.set_label(detail)
+
+
+class UsageIndicator:
+    def __init__(self):
+        # The AppIndicator extension inserts each new item to the left of the
+        # ones before it, so Codex is created first to end up on the right.
+        self.codex = ToolIndicator(CODEX_APP_ID, codex_icon(), self.poll_async, Gtk.main_quit)
+        self.claude = ToolIndicator(APP_ID, claude_icon(), self.poll_async, Gtk.main_quit)
 
     def start(self):
         self.poll_async()
@@ -245,12 +283,6 @@ class UsageIndicator:
     def on_timer(self):
         self.poll_async()
         return True
-
-    def on_refresh_clicked(self, _widget):
-        self.poll_async()
-
-    def on_quit(self, _widget):
-        Gtk.main_quit()
 
     def poll_async(self):
         threading.Thread(target=self._poll_worker, daemon=True).start()
@@ -269,17 +301,15 @@ class UsageIndicator:
         GLib.idle_add(self.set_usage, claude, codex)
 
     def set_usage(self, claude, codex):
-        label = f"{self.claude_label(claude)}  |  {self.codex_label(codex)}"
-        self.indicator.set_label(label, "")
-        self.claude_item.set_label(self.claude_detail(claude))
-        self.codex_item.set_label(self.codex_detail(codex))
+        self.claude.show(self.claude_label(claude), self.claude_detail(claude))
+        self.codex.show(self.codex_label(codex), self.codex_detail(codex))
         return False
 
     @staticmethod
     def claude_label(usage):
         if not usage:
-            return "Claude Session ?% · Week ?%"
-        return f"Claude Session {usage['session_pct']}% · Week {usage['week_pct']}%"
+            return "Session ?% · Week ?%"
+        return f"Session {usage['session_pct']}% · Week {usage['week_pct']}%"
 
     @staticmethod
     def claude_detail(usage):
@@ -296,12 +326,12 @@ class UsageIndicator:
     @staticmethod
     def codex_label(usage):
         if not usage:
-            return "Codex ?%"
+            return "?%"
         parts = [f"{w['name']} {w['pct']}%" for w in usage["windows"]]
         if usage["month"]:
             parts.append(f"Month {usage['month']['pct']}%")
-        name = "Codex*" if usage["stale_since"] else "Codex"
-        return f"{name} {' · '.join(parts) or '?%'}"
+        stale = "*" if usage["stale_since"] else ""
+        return f"{' · '.join(parts) or '?%'}{stale}"
 
     @staticmethod
     def codex_detail(usage):
