@@ -1,5 +1,5 @@
 [Unit]
-Description=Claude Code usage indicator
+Description=Claude Code and Codex usage indicator
 PartOf=graphical-session.target
 
 [Service]

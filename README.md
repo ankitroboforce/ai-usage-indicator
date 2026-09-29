@@ -1,7 +1,32 @@
 # claude-usage-indicator
 
-A GNOME top-panel indicator that shows Claude Code usage (session % and
-weekly % from `claude -p "/usage"`), refreshing every 30 seconds.
+A GNOME top-panel indicator that shows Claude Code and Codex usage in one
+label, refreshing every 30 seconds:
+
+```
+Claude Session 9% · Week 4%  |  Codex Week 0% · Month 0%
+```
+
+All numbers are **% used**, so both tools read the same way. Click the
+label for reset times, Codex credit counts, and "Refresh now".
+
+## Where the numbers come from
+
+- **Claude**: `claude -p "/usage" --output-format json` (a local command;
+  no tokens used).
+- **Codex**: Codex has no non-interactive `/status`, so the indicator
+  starts a short-lived `codex app-server` (Codex's JSON-RPC interface) and
+  calls `account/rateLimits/read`, the same lookup `/status` does. It
+  takes ~0.5s, runs no model turn, and uses no quota.
+  - `Week` is the weekly rate-limit window (`usedPercent`). A 5-hour window
+    shows as `Session` if your plan has one.
+  - `Month` is the monthly credit limit. `/status` shows it as "% left";
+    the indicator shows `100 − remaining` so it matches everything else.
+  - `app-server` is marked experimental by Codex. If the call fails, the
+    indicator falls back to the last rate-limit snapshot in
+    `~/.codex/sessions/` and shows **`Codex*`**. That snapshot is only as
+    fresh as your last Codex turn and has no `Month` figure; a window whose
+    reset time has passed is shown as 0%.
 
 Built for Ubuntu 22.04 / GNOME Shell 42, using `AyatanaAppIndicator3`
 (the cross-desktop StatusNotifierItem protocol) rather than a GNOME Shell
@@ -32,7 +57,8 @@ python3 indicator.py
 ## Configuration
 
 Edit the `REFRESH_SECONDS` constant at the top of `indicator.py` (default
-`30`) to change the polling interval, then restart the service:
+`30`) to change the polling interval, or `CLAUDE_BIN` / `CODEX_BIN` to
+point at a specific binary, then restart the service:
 
 ```bash
 systemctl --user restart claude-usage-indicator.service
@@ -67,7 +93,7 @@ If the panel label isn't showing or isn't updating:
 
 Common issues:
 
-- **Label stuck on `Session ?% · Week ?%`** — the `claude -p "/usage"` call
+- **Label shows `Claude Session ?% · Week ?%`** — the `claude -p "/usage"` call
   failed, or its output format changed. Check `indicator.log` for the
   exception, and confirm the command still works directly:
   ```bash
@@ -80,6 +106,18 @@ Common issues:
   ```
   It should list `ubuntu-appindicators@ubuntu.com`. If you just installed
   it, log out and back in.
+- **Label shows `Codex*`** — the live `codex app-server` read failed and
+  the numbers are from the session logs. The menu shows how old they are,
+  and `indicator.log` has the exception. Common causes are a Codex update
+  that changed the app-server protocol, or being logged out
+  (`codex login`). To test the live read directly:
+  ```bash
+  python3 -c "import sys; sys.path.insert(0, '$HOME/.local/share/claude-usage-indicator'); import indicator; print(indicator.fetch_codex_rate_limits())"
+  ```
+- **Label shows `Codex ?%`** — both the live read and the log fallback
+  failed (e.g. `codex` isn't installed or has never been used). Check
+  `which codex`, or set `CODEX_BIN` at the top of `indicator.py` to the
+  absolute path.
 - **`Namespace AyatanaAppIndicator3 not available`** — the apt dependency
   is missing:
   ```bash
