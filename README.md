@@ -10,6 +10,9 @@ side, refreshing every 30 seconds:
 All numbers are **% used**, so both tools read the same way. Click either
 item for reset times, Codex credit counts, and "Refresh now".
 
+> **On Windows?** See [`windows/`](windows/README.md) for a notification-area
+> (system tray) version with its own installer.
+
 ## Icons
 
 - **Claude** uses the `claude-desktop` icon installed by the Claude desktop
