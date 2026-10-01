@@ -16,8 +16,11 @@ AppIndicator) and shares no code with `indicator.py`.
 - Grey `?` = the last read failed (logged out, offline). Grey `!` = Claude polling paused for
   safety (see below). An icon is hidden while its CLI isn't installed.
 
-Refreshes every 60 s. New icons land in the `^` overflow; to keep them visible, open
-Settings > Personalization > Taskbar > Other system tray icons and turn them on.
+Refreshes every 60 s. On Windows 11 the installer switches the icons to show on the taskbar
+(instead of the `^` overflow); pass `-NoPin` to skip that. Windows keeps one switch per program, so
+it appears as **Python** under Settings > Personalization > Taskbar > Other system tray icons, and
+it also applies to any other tray icon run by the same `pythonw.exe`. On Windows 10, drag the icons
+out of the overflow yourself.
 
 ## Where the numbers come from
 
@@ -54,6 +57,7 @@ Either tool may be missing; its icon simply stays hidden.
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1     # install or upgrade
 powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -Python C:\path\to\python.exe
+powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 -NoPin   # leave icons in the overflow
 powershell -NoProfile -ExecutionPolicy Bypass -File uninstall.ps1   # remove
 ```
 

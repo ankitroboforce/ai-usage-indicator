@@ -1,8 +1,9 @@
 # Install or upgrade AI Usage Tray for the current user. Re-run to upgrade.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1
 #   -Python C:\path\to\python.exe   use a specific interpreter (pythonw.exe must sit beside it)
+#   -NoPin                          don't switch the icons to "show on taskbar"
 [CmdletBinding()]
-param([switch]$NoStart, [string]$Python)
+param([switch]$NoStart, [string]$Python, [switch]$NoPin)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'tray-common.ps1')
@@ -126,10 +127,64 @@ function Start-AndVerify {
     return $null
 }
 
+function Set-TrayPromoted {
+    # Windows 11 lists notification-area icons under
+    # HKCU\Control Panel\NotifyIconSettings\<id>; IsPromoted=1 is the
+    # "Other system tray icons" switch. Icons without a GUID get one entry
+    # per executable, so this shows both icons (and any other pythonw tray
+    # app). Explorer creates the entry shortly after the icon first appears.
+    # Explorer creates the entry ~2 s after a new app's icon first appears
+    # (measured), and applies IsPromoted immediately. Paths under known
+    # folders are stored as "{KNOWNFOLDERID}\rest", e.g. Program Files.
+    $root = 'HKCU:\Control Panel\NotifyIconSettings'
+    if (-not (Test-Path -LiteralPath $root)) { return $false }   # Windows 10
+    $programFiles = if ($env:ProgramW6432) { $env:ProgramW6432 } else { $env:ProgramFiles }
+    $knownFolders = @{
+        '{6D809377-6AF0-444B-8957-A3773F02200E}' = $programFiles
+        '{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}' = ${env:ProgramFiles(x86)}
+        '{F38BF404-1D43-42F2-9305-67DE0B28FC23}' = $env:windir
+        '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}' = (Join-Path $env:windir 'System32')
+        '{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}' = $env:LOCALAPPDATA
+        '{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}' = $env:APPDATA
+        '{5E6C858F-0E22-4760-9AFE-EA3317B67173}' = $env:USERPROFILE
+    }
+    $expand = {
+        param([string]$stored)
+        if ($stored -match '^(\{[0-9A-Fa-f-]{36}\})(\\.*)$' -and $knownFolders.ContainsKey($Matches[1].ToUpperInvariant())) {
+            return $knownFolders[$Matches[1].ToUpperInvariant()] + $Matches[2]
+        }
+        return $stored
+    }
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline) {
+        $entries = @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | Where-Object {
+            $p = Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue
+            $p -and $p.ExecutablePath -and
+            [string]::Equals((& $expand ([string]$p.ExecutablePath)), $pythonw, [StringComparison]::OrdinalIgnoreCase)
+        })
+        if ($entries.Count -gt 0) {
+            foreach ($e in $entries) {
+                Set-ItemProperty -LiteralPath $e.PSPath -Name IsPromoted -Value 1 -Type DWord
+            }
+            return $true
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
 $id = Start-AndVerify
 if ($id) {
     Write-Host "Running (pid $id). Log: $(Join-Path $Runtime 'tray.log')"
-    Write-Host 'Tip: pin the two icons via Settings > Personalization > Taskbar > Other system tray icons.'
+    $pinned = $false
+    if (-not $NoPin) {
+        try { $pinned = Set-TrayPromoted } catch { Write-Warning "Could not pin the icons: $($_.Exception.Message)" }
+    }
+    if ($pinned) {
+        Write-Host 'Icons set to show on the taskbar (Settings > Personalization > Taskbar > Other system tray icons > Python).'
+    } else {
+        Write-Host 'Tip: to keep the icons visible, turn on "Python" under Settings > Personalization > Taskbar > Other system tray icons.'
+    }
     return
 }
 
